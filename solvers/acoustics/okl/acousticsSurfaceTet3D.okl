@@ -52,6 +52,8 @@ void upwind(const dfloat nx,
 
 }
 
+#if KERNEL_NUMBER==0
+
 // batch process elements
 @kernel void acousticsSurfaceTet3D(const dlong Nelements,
                                   @restrict const  dlong  *  elementIds,
@@ -68,107 +70,320 @@ void upwind(const dfloat nx,
                                   @restrict dfloat *  rhsq){
 
   // for all elements
-  for(dlong eo=0;eo<Nelements;eo+=p_NblockS;@outer(0)){
+  for(dlong eo=0;eo<Nelements;eo+=p_NelementsPerBlk*p_NelementsPerThd;@outer(0)){
 
     // @shared storage for flux terms
-    @shared dfloat s_rflux [p_NblockS][p_NfacesNfp];
-    @shared dfloat s_uflux[p_NblockS][p_NfacesNfp];
-    @shared dfloat s_vflux[p_NblockS][p_NfacesNfp];
-    @shared dfloat s_wflux[p_NblockS][p_NfacesNfp];
+    @shared dfloat s_rflux[p_NelementsPerThd][p_NelementsPerBlk][p_NfacesNfp];
+    @shared dfloat s_uflux[p_NelementsPerThd][p_NelementsPerBlk][p_NfacesNfp];
+    @shared dfloat s_vflux[p_NelementsPerThd][p_NelementsPerBlk][p_NfacesNfp];
+    @shared dfloat s_wflux[p_NelementsPerThd][p_NelementsPerBlk][p_NfacesNfp];
 
-    @exclusive dlong r_e, element;
+    @exclusive dlong element[p_NelementsPerThd];
 
     // for all face nodes of all elements
-    for(int es=0;es<p_NblockS;++es;@inner(1)){
-      for(int n=0;n<p_maxNodes;++n;@inner(0)){ // maxNodes = max(Nfp*Nfaces,Np)
-        r_e = eo + es;
-        if(r_e<Nelements){
-          element = elementIds[r_e];
+    for(int es=0;es<p_NelementsPerBlk;++es;@inner(1)){
+      for(int n=0;n<p_maxNodes;++n;@inner(0)){ // p_maxNodes = max(Nfp*Nfaces,Np)
 
-          if(n<p_NfacesNfp){
-            // find face that owns this node
-            const int face = n/p_Nfp;
+        for(int et=0;et<p_NelementsPerThd;++et){
+          const dlong e = eo + es + et*p_NelementsPerBlk;
+          if(e<Nelements){
+            element[et] = elementIds[e];
 
-            // load surface geofactors for this face
-            const dlong sid    = p_Nsgeo*(element*p_Nfaces+face);
-            const dfloat nx   = sgeo[sid+p_NXID];
-            const dfloat ny   = sgeo[sid+p_NYID];
-            const dfloat nz   = sgeo[sid+p_NZID];
-            const dfloat sJ   = sgeo[sid+p_SJID];
-            const dfloat invJ = sgeo[sid+p_IJID];
+            if(n<p_NfacesNfp){
+              // find face that owns this node
+              const int face = n/p_Nfp;
 
-            // indices of negative and positive traces of face node
-            const dlong id  = element*p_Nfp*p_Nfaces + n;
-            const dlong idM = vmapM[id];
-            const dlong idP = vmapP[id];
+              // load surface geofactors for this face
+              const dlong sid   = p_Nsgeo*(element[et]*p_Nfaces+face);
+              const dfloat nx   = sgeo[sid+p_NXID];
+              const dfloat ny   = sgeo[sid+p_NYID];
+              const dfloat nz   = sgeo[sid+p_NZID];
+              const dfloat sJ   = sgeo[sid+p_SJID];
+              const dfloat invJ = sgeo[sid+p_IJID];
 
-            // load traces
-            const dlong eM = element;
-            const dlong eP = idP/p_Np;
-            const int vidM = idM%p_Np;
-            const int vidP = idP%p_Np;
+              // indices of negative and positive traces of face node
+              const dlong id  = element[et]*p_Nfp*p_Nfaces + n;
+              const dlong idM = vmapM[id];
+              const dlong idP = vmapP[id];
 
-            const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
-            const dlong qbaseP = eP*p_Np*p_Nfields + vidP;
+              // load traces
+              const dlong eM = element[et];
+              const dlong eP = idP/p_Np;
+              const int vidM = idM%p_Np;
+              const int vidP = idP%p_Np;
 
-            const dfloat rM = q[qbaseM + 0*p_Np];
-            const dfloat uM = q[qbaseM + 1*p_Np];
-            const dfloat vM = q[qbaseM + 2*p_Np];
-            const dfloat wM = q[qbaseM + 3*p_Np];
+              const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
+              const dlong qbaseP = eP*p_Np*p_Nfields + vidP;
 
-            dfloat rP = q[qbaseP + 0*p_Np];
-            dfloat uP = q[qbaseP + 1*p_Np];
-            dfloat vP = q[qbaseP + 2*p_Np];
-            dfloat wP = q[qbaseP + 3*p_Np];
+              const dfloat rM = q[qbaseM + 0*p_Np];
+              const dfloat uM = q[qbaseM + 1*p_Np];
+              const dfloat vM = q[qbaseM + 2*p_Np];
+              const dfloat wM = q[qbaseM + 3*p_Np];
 
-            // apply boundary condition
-            const int bc = EToB[face+p_Nfaces*element];
-            if(bc>0){
-              acousticsDirichletConditions3D(bc, time, x[idM], y[idM], z[idM], nx, ny, nz, rM, uM, vM, wM, &rP, &uP, &vP, &wP);
+              dfloat rP = q[qbaseP + 0*p_Np];
+              dfloat uP = q[qbaseP + 1*p_Np];
+              dfloat vP = q[qbaseP + 2*p_Np];
+              dfloat wP = q[qbaseP + 3*p_Np];
+
+              // apply boundary condition
+              const int bc = EToB[face+p_Nfaces*element[et]];
+              if(bc>0){
+                acousticsDirichletConditions3D(bc, time, x[idM], y[idM], z[idM], nx, ny, nz, rM, uM, vM, wM, &rP, &uP, &vP, &wP);
+              }
+
+              // evaluate "flux" terms: (sJ/J)*(A*nx+B*ny)*(q^* - q^-)
+              const dfloat sc = invJ*sJ;
+
+              dfloat rflux, uflux, vflux, wflux;
+
+              upwind(nx, ny, nz, rM, uM, vM, wM, rP, uP, vP, wP, &rflux, &uflux, &vflux, &wflux);
+
+              s_rflux[et][es][n] = sc*(-rflux );
+              s_uflux[et][es][n] = sc*(-uflux);
+              s_vflux[et][es][n] = sc*(-vflux);
+              s_wflux[et][es][n] = sc*(-wflux);
             }
-
-            // evaluate "flux" terms: (sJ/J)*(A*nx+B*ny)*(q^* - q^-)
-            const dfloat sc = invJ*sJ;
-
-            dfloat rflux, uflux, vflux, wflux;
-
-            upwind(nx, ny, nz, rM, uM, vM, wM, rP, uP, vP, wP, &rflux, &uflux, &vflux, &wflux);
-
-            s_rflux[es][n] = sc*(-rflux );
-            s_uflux[es][n] = sc*(-uflux);
-            s_vflux[es][n] = sc*(-vflux);
-            s_wflux[es][n] = sc*(-wflux);
           }
         }
       }
     }
 
     // for each node in the element
-    for(int es=0;es<p_NblockS;++es;@inner(1)){
+    for(int es=0;es<p_NelementsPerBlk;++es;@inner(1)){
       for(int n=0;n<p_maxNodes;++n;@inner(0)){
-        if(r_e<Nelements){
-          if(n<p_Np){
-            // load rhs data from volume fluxes
-            dfloat Lrflux = 0.f, Luflux = 0.f, Lvflux = 0.f, Lwflux = 0.f;
+        // load rhs data from volume fluxes
+        dfloat Lrflux[p_NelementsPerThd] = {0.f};
+        dfloat Luflux[p_NelementsPerThd] = {0.f};
+        dfloat Lvflux[p_NelementsPerThd] = {0.f};
+        dfloat Lwflux[p_NelementsPerThd] = {0.f};
 
-            // rhs += LIFT*((sJ/J)*(A*nx+B*ny)*(q^* - q^-))
-            #pragma unroll p_NfacesNfp
-              for(int m=0;m<p_NfacesNfp;++m){
-                const dfloat L = LIFT[n+m*p_Np];
-                Lrflux  += L*s_rflux[es][m];
-                Luflux += L*s_uflux[es][m];
-                Lvflux += L*s_vflux[es][m];
-                Lwflux += L*s_wflux[es][m];
-              }
+        if(n<p_Np){
+          // rhs += LIFT*((sJ/J)*(A*nx+B*ny)*(q^* - q^-))
+          for(int m=0;m<p_NfacesNfp;++m){
+            const dfloat L = LIFT[n+m*p_Np];
+            for(int et=0;et<p_NelementsPerThd;++et){
+              Lrflux[et] += L*s_rflux[et][es][m];
+              Luflux[et] += L*s_uflux[et][es][m];
+              Lvflux[et] += L*s_vflux[et][es][m];
+              Lwflux[et] += L*s_wflux[et][es][m];
+            }
+          }
 
-            const dlong base = element*p_Np*p_Nfields+n;
-            rhsq[base+0*p_Np] += Lrflux;
-            rhsq[base+1*p_Np] += Luflux;
-            rhsq[base+2*p_Np] += Lvflux;
-            rhsq[base+3*p_Np] += Lwflux;
+          for(int et=0;et<p_NelementsPerThd;++et){
+            const dlong e = eo + es + et*p_NelementsPerBlk;
+            if(e<Nelements){
+              const dlong base = element[et]*p_Np*p_Nfields+n;
+              rhsq[base+0*p_Np] += Lrflux[et];
+              rhsq[base+1*p_Np] += Luflux[et];
+              rhsq[base+2*p_Np] += Lvflux[et];
+              rhsq[base+3*p_Np] += Lwflux[et];
+            }
           }
         }
       }
     }
   }
 }
+
+#elif KERNEL_NUMBER==1
+
+//MFMA
+@kernel void acousticsSurfaceTet3D(const dlong Nelements,
+                                  @restrict const  dlong  *  elementIds,
+                                  @restrict const  dfloat *  sgeo,
+                                  @restrict const  dfloat *  LIFT,
+                                  @restrict const  dlong  *  vmapM,
+                                  @restrict const  dlong  *  vmapP,
+                                  @restrict const  int    *  EToB,
+                                  const dfloat time,
+                                  @restrict const  dfloat *  x,
+                                  @restrict const  dfloat *  y,
+                                  @restrict const  dfloat *  z,
+                                  @restrict const  dfloat *  q,
+                                  @restrict dfloat *  rhsq){
+
+  // for all elements
+  for(dlong eo=0;eo<Nelements;eo+=16;@outer(0)){
+
+    // @shared storage for flux terms
+    @shared dfloat s_rflux[(((p_NfacesNfp-1)/16)+1)*16][16+1];
+    @shared dfloat s_uflux[(((p_NfacesNfp-1)/16)+1)*16][16+1];
+
+    @exclusive dfloat r_vflux[4];
+    @exclusive dfloat r_wflux[4];
+
+    @exclusive dlong element[4];
+
+    @exclusive int n;
+
+    // for all face nodes of all elements
+    for(int w=0;w<((p_maxNodes-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){ // p_maxNodes = max(Nfp*Nfaces,Np)
+
+          n = lx + 16*w;
+
+          dfloat r_rflux[4];
+          dfloat r_uflux[4];
+
+          for(int i=0;i<4;++i){
+            const dlong e = eo + ly + i*4;
+
+            r_rflux[i] = 0.;
+            r_uflux[i] = 0.;
+            r_vflux[i] = 0.;
+            r_wflux[i] = 0.;
+
+            if(e<Nelements){
+              element[i] = elementIds[e];
+
+              if(n<p_NfacesNfp){
+                // find face that owns this node
+                const int face = n/p_Nfp;
+
+                // load surface geofactors for this face
+                const dlong sid   = p_Nsgeo*(element[i]*p_Nfaces+face);
+                const dfloat nx   = sgeo[sid+p_NXID];
+                const dfloat ny   = sgeo[sid+p_NYID];
+                const dfloat nz   = sgeo[sid+p_NZID];
+                const dfloat sJ   = sgeo[sid+p_SJID];
+                const dfloat invJ = sgeo[sid+p_IJID];
+
+                // indices of negative and positive traces of face node
+                const dlong id  = element[i]*p_Nfp*p_Nfaces + n;
+                const dlong idM = vmapM[id];
+                const dlong idP = vmapP[id];
+
+                // load traces
+                const dlong eM = element[i];
+                const dlong eP = idP/p_Np;
+                const int vidM = idM%p_Np;
+                const int vidP = idP%p_Np;
+
+                const dlong qbaseM = eM*p_Np*p_Nfields + vidM;
+                const dlong qbaseP = eP*p_Np*p_Nfields + vidP;
+
+                const dfloat rM = q[qbaseM + 0*p_Np];
+                const dfloat uM = q[qbaseM + 1*p_Np];
+                const dfloat vM = q[qbaseM + 2*p_Np];
+                const dfloat wM = q[qbaseM + 3*p_Np];
+
+                dfloat rP = q[qbaseP + 0*p_Np];
+                dfloat uP = q[qbaseP + 1*p_Np];
+                dfloat vP = q[qbaseP + 2*p_Np];
+                dfloat wP = q[qbaseP + 3*p_Np];
+
+                // apply boundary condition
+                const int bc = EToB[face+p_Nfaces*element[i]];
+                if(bc>0){
+                  acousticsDirichletConditions3D(bc, time, x[idM], y[idM], z[idM], nx, ny, nz, rM, uM, vM, wM, &rP, &uP, &vP, &wP);
+                }
+
+                // evaluate "flux" terms: (sJ/J)*(A*nx+B*ny)*(q^* - q^-)
+                const dfloat sc = invJ*sJ;
+
+                dfloat rflux, uflux, vflux, wflux;
+
+                upwind(nx, ny, nz, rM, uM, vM, wM, rP, uP, vP, wP, &rflux, &uflux, &vflux, &wflux);
+
+                r_rflux[i] = sc*(-rflux);
+                r_uflux[i] = sc*(-uflux);
+                r_vflux[i] = sc*(-vflux);
+                r_wflux[i] = sc*(-wflux);
+              }
+            }
+          }
+
+          for (int i=0;i<4;++i) {
+            s_rflux[n][ly+4*i] = r_rflux[i];
+            s_uflux[n][ly+4*i] = r_uflux[i];
+          }
+        }
+      }
+    }
+
+    @exclusive __attribute__((__vector_size__(4 * 8))) double Lrflux;
+    @exclusive __attribute__((__vector_size__(4 * 8))) double Luflux;
+    @exclusive __attribute__((__vector_size__(4 * 8))) double Lvflux;
+    @exclusive __attribute__((__vector_size__(4 * 8))) double Lwflux;
+
+    for(int w=0;w<((p_maxNodes-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){ // p_maxNodes = max(Nfp*Nfaces,Np)
+
+          for (int i = 0; i<4;++i) {
+            Lrflux[i] = 0.;
+            Luflux[i] = 0.;
+          }
+
+          dfloat r_L = (n<p_Np && (ly)<p_NfacesNfp) ? LIFT[n + (ly)*p_Np] : 0.0; //16 rows and 4 columns of LIFT
+
+          for(int m=0;m<p_NfacesNfp;m+=4){
+            const dfloat r_L_next = (n<p_Np && (m+4+ly)<p_NfacesNfp) ? LIFT[n + (m+4+ly)*p_Np] : 0.0; //16 rows and 4 columns of D
+
+            const dfloat r  = s_rflux[m+ly][lx]; //4 DOFs from 16 elements
+            const dfloat u  = s_uflux[m+ly][lx]; //4 DOFs from 16 elements
+
+            Lrflux = __builtin_amdgcn_mfma_f64_16x16x4f64(r, r_L, Lrflux, 0, 0, 0);
+            Luflux = __builtin_amdgcn_mfma_f64_16x16x4f64(u, r_L, Luflux, 0, 0, 0);
+
+            r_L = r_L_next;
+          }
+        }
+      }
+    }
+
+    for(int w=0;w<((p_maxNodes-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){ // p_maxNodes = max(Nfp*Nfaces,Np)
+          //cycle shmem buffers
+          for (int i=0;i<4;++i) {
+            s_rflux[n][ly+4*i] = r_vflux[i];
+            s_uflux[n][ly+4*i] = r_wflux[i];
+          }
+        }
+      }
+    }
+
+    for(int w=0;w<((p_maxNodes-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){ // p_maxNodes = max(Nfp*Nfaces,Np)
+
+          for (int i = 0; i<4;++i) {
+            Lvflux[i] = 0.;
+            Lwflux[i] = 0.;
+          }
+
+          dfloat r_L = (n<p_Np && (ly)<p_NfacesNfp) ? LIFT[n + (ly)*p_Np] : 0.0; //16 rows and 4 columns of LIFT
+
+          for(int m=0;m<p_NfacesNfp;m+=4){
+            const dfloat r_L_next = (n<p_Np && (m+4+ly)<p_NfacesNfp) ? LIFT[n + (m+4+ly)*p_Np] : 0.0; //16 rows and 4 columns of D
+
+            const dfloat v  = s_rflux[m+ly][lx]; //4 DOFs from 16 elements
+            const dfloat w  = s_uflux[m+ly][lx]; //4 DOFs from 16 elements
+
+            Lvflux = __builtin_amdgcn_mfma_f64_16x16x4f64(v, r_L, Lvflux, 0, 0, 0);
+            Lwflux = __builtin_amdgcn_mfma_f64_16x16x4f64(w, r_L, Lwflux, 0, 0, 0);
+
+            r_L = r_L_next;
+          }
+
+          if (n < p_Np) {
+            for(int i=0;i<4;++i){
+              const dlong e = eo + ly + i*4;
+              if(e<Nelements){
+                const dlong base = element[i]*p_Np*p_Nfields+n;
+                rhsq[base+0*p_Np] += Lrflux[i];
+                rhsq[base+1*p_Np] += Luflux[i];
+                rhsq[base+2*p_Np] += Lvflux[i];
+                rhsq[base+3*p_Np] += Lwflux[i];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+#endif

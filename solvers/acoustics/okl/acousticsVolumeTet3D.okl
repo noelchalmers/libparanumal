@@ -24,7 +24,7 @@ SOFTWARE.
 
 */
 
-
+#if 0
 // isotropic acoustics
 @kernel void acousticsVolumeTet3D_v0(const dlong Nelements,
                                     @restrict const  dfloat *  vgeo,
@@ -215,19 +215,19 @@ SOFTWARE.
                                     @restrict const  dfloat *  q,
                                     @restrict dfloat *  rhsq){
 
-#define p_Nvol 2
+#define p_NelementsPerThd 2
 
-  for(dlong eo=0;eo<Nelements;eo+=p_Nvol;@outer(0)){
+  for(dlong eo=0;eo<Nelements;eo+=p_NelementsPerThd;@outer(0)){
 
-    @shared dfloat s_rho[p_Nvol][p_Np];
-    @shared dfloat s_u[p_Nvol][p_Np];
-    @shared dfloat s_v[p_Nvol][p_Np];
-    @shared dfloat s_w[p_Nvol][p_Np];
+    @shared dfloat s_rho[p_NelementsPerThd][p_Np];
+    @shared dfloat s_u[p_NelementsPerThd][p_Np];
+    @shared dfloat s_v[p_NelementsPerThd][p_Np];
+    @shared dfloat s_w[p_NelementsPerThd][p_Np];
 
     for(int n=0;n<p_Np;++n;@inner(0)){
 
-      #pragma unroll p_Nvol
-        for(int es=0;es<p_Nvol;++es){
+      #pragma unroll p_NelementsPerThd
+        for(int es=0;es<p_NelementsPerThd;++es){
 
           const dlong e = es+eo;
 
@@ -244,12 +244,12 @@ SOFTWARE.
 
     for(int n=0;n<p_Np;++n;@inner(0)){
 
-      dfloat r_drhodr[p_Nvol], r_drhods[p_Nvol], r_drhodt[p_Nvol];
-      dfloat r_dudr[p_Nvol], r_duds[p_Nvol], r_dudt[p_Nvol];
-      dfloat r_dvdr[p_Nvol], r_dvds[p_Nvol], r_dvdt[p_Nvol];
-      dfloat r_dwdr[p_Nvol], r_dwds[p_Nvol], r_dwdt[p_Nvol];
+      dfloat r_drhodr[p_NelementsPerThd], r_drhods[p_NelementsPerThd], r_drhodt[p_NelementsPerThd];
+      dfloat r_dudr[p_NelementsPerThd], r_duds[p_NelementsPerThd], r_dudt[p_NelementsPerThd];
+      dfloat r_dvdr[p_NelementsPerThd], r_dvds[p_NelementsPerThd], r_dvdt[p_NelementsPerThd];
+      dfloat r_dwdr[p_NelementsPerThd], r_dwds[p_NelementsPerThd], r_dwdt[p_NelementsPerThd];
 
-      for(int es=0;es<p_Nvol;++es){
+      for(int es=0;es<p_NelementsPerThd;++es){
         r_drhodr[es] = 0;
         r_drhods[es] = 0;
         r_drhodt[es] = 0;
@@ -260,13 +260,13 @@ SOFTWARE.
 
       #pragma unroll p_Np
         for(int m=0;m<p_Np;++m){
-          // 3 L1 loads, p_Nvol*4 sh loads, for   24*p_Nvol flops
+          // 3 L1 loads, p_NelementsPerThd*4 sh loads, for   24*p_NelementsPerThd flops
           const dfloat Drnm = D[n+m*p_Np];
           const dfloat Dsnm = D[n+m*p_Np+1*p_Np*p_Np];
           const dfloat Dtnm = D[n+m*p_Np+2*p_Np*p_Np];
 
-          #pragma unroll p_Nvol
-            for(int es=0;es<p_Nvol;++es){
+          #pragma unroll p_NelementsPerThd
+            for(int es=0;es<p_NelementsPerThd;++es){
               const dfloat rhom = s_rho[es][m];
               const dfloat um = s_u[es][m];
               const dfloat vm = s_v[es][m];
@@ -290,8 +290,8 @@ SOFTWARE.
             }
         }
 
-      #pragma unroll p_Nvol
-        for(int es=0;es<p_Nvol;++es){
+      #pragma unroll p_NelementsPerThd
+        for(int es=0;es<p_NelementsPerThd;++es){
 
           const dlong e = es+eo;
 
@@ -329,6 +329,9 @@ SOFTWARE.
 }
 
 
+// #define p_NelementsPerThd 1
+// #define p_NelementsPerBlk 4
+
 // thread loop over elements
 @kernel void acousticsVolumeTet3D(const dlong Nelements,
                                  @restrict const  dfloat *  vgeo,
@@ -336,23 +339,20 @@ SOFTWARE.
                                  @restrict const  dfloat *  q,
                                  @restrict dfloat *  rhsq){
 
-#define p_Nvol 1
-#define p_NblockV 4
+  for(dlong eo=0;eo<Nelements;eo+=(p_NelementsPerThd*p_NelementsPerBlk);@outer(0)){
 
-  for(dlong eo=0;eo<Nelements;eo+=(p_Nvol*p_NblockV);@outer(0)){
+    @shared dfloat s_rho[p_NelementsPerThd][p_NelementsPerBlk][p_Np];
+    @shared dfloat s_u[p_NelementsPerThd][p_NelementsPerBlk][p_Np];
+    @shared dfloat s_v[p_NelementsPerThd][p_NelementsPerBlk][p_Np];
+    @shared dfloat s_w[p_NelementsPerThd][p_NelementsPerBlk][p_Np];
 
-    @shared dfloat s_rho[p_Nvol][p_NblockV][p_Np];
-    @shared dfloat s_u[p_Nvol][p_NblockV][p_Np];
-    @shared dfloat s_v[p_Nvol][p_NblockV][p_Np];
-    @shared dfloat s_w[p_Nvol][p_NblockV][p_Np];
-
-    for(int et=0;et<p_NblockV;++et;@inner(1)){
+    for(int et=0;et<p_NelementsPerBlk;++et;@inner(1)){
       for(int n=0;n<p_Np;++n;@inner(0)){
 
-        #pragma unroll p_Nvol
-          for(int es=0;es<p_Nvol;++es){
+        // #pragma unroll p_NelementsPerThd
+          for(int es=0;es<p_NelementsPerThd;++es){
 
-            const dlong e = es*p_NblockV + et + eo;
+            const dlong e = es*p_NelementsPerBlk + et + eo;
 
             if(e<Nelements){
 
@@ -366,16 +366,16 @@ SOFTWARE.
       }
     }
 
-    for(int et=0;et<p_NblockV;++et;@inner(1)){
+    for(int et=0;et<p_NelementsPerBlk;++et;@inner(1)){
       for(int n=0;n<p_Np;++n;@inner(0)){
 
-        dfloat r_drhodr[p_Nvol], r_drhods[p_Nvol], r_drhodt[p_Nvol];
-        dfloat r_dudr[p_Nvol], r_duds[p_Nvol], r_dudt[p_Nvol];
-        dfloat r_dvdr[p_Nvol], r_dvds[p_Nvol], r_dvdt[p_Nvol];
-        dfloat r_dwdr[p_Nvol], r_dwds[p_Nvol], r_dwdt[p_Nvol];
+        dfloat r_drhodr[p_NelementsPerThd], r_drhods[p_NelementsPerThd], r_drhodt[p_NelementsPerThd];
+        dfloat r_dudr[p_NelementsPerThd], r_duds[p_NelementsPerThd], r_dudt[p_NelementsPerThd];
+        dfloat r_dvdr[p_NelementsPerThd], r_dvds[p_NelementsPerThd], r_dvdt[p_NelementsPerThd];
+        dfloat r_dwdr[p_NelementsPerThd], r_dwds[p_NelementsPerThd], r_dwdt[p_NelementsPerThd];
 
-        #pragma unroll p_Nvol
-          for(int es=0;es<p_Nvol;++es){
+        // #pragma unroll p_NelementsPerThd
+          for(int es=0;es<p_NelementsPerThd;++es){
             r_drhodr[es] = 0;
             r_drhods[es] = 0;
             r_drhodt[es] = 0;
@@ -384,15 +384,15 @@ SOFTWARE.
             r_dwdr[es] = 0; r_dwds[es] = 0; r_dwdt[es] = 0;
           }
 
-        #pragma unroll p_Np
+        // #pragma unroll p_Np
           for(int m=0;m<p_Np;++m){
 
             const dfloat Drnm = D[n+m*p_Np];
             const dfloat Dsnm = D[n+m*p_Np+1*p_Np*p_Np];
             const dfloat Dtnm = D[n+m*p_Np+2*p_Np*p_Np];
 
-            #pragma unroll p_Nvol
-              for(int es=0;es<p_Nvol;++es){
+            // #pragma unroll p_NelementsPerThd
+              for(int es=0;es<p_NelementsPerThd;++es){
                 const dfloat rhom = s_rho[es][et][m];
                 const dfloat um = s_u[es][et][m];
                 const dfloat vm = s_v[es][et][m];
@@ -416,10 +416,10 @@ SOFTWARE.
               }
           }
 
-        #pragma unroll p_Nvol
-          for(int es=0;es<p_Nvol;++es){
+        // #pragma unroll p_NelementsPerThd
+          for(int es=0;es<p_NelementsPerThd;++es){
 
-            const dlong e = es*p_NblockV + et + eo;
+            const dlong e = es*p_NelementsPerBlk + et + eo;
 
             if(e<Nelements){
               // prefetch geometric factors (constant on triangle)
@@ -455,5 +455,343 @@ SOFTWARE.
     }
   }
 }
+#endif
+
+#if KERNEL_NUMBER==0
+
+// thread loop over elements
+@kernel void acousticsVolumeTet3D(const dlong Nelements,
+                                 @restrict const  dfloat *  vgeo,
+                                 @restrict const  dfloat *  D,
+                                 @restrict const  dfloat *  q,
+                                 @restrict dfloat *  rhsq){
+
+  for(dlong eo=0;eo<Nelements;eo+=(p_NelementsPerThd*p_NelementsPerBlk);@outer(0)){
+
+    @shared dfloat s_rho[p_NelementsPerThd][p_NelementsPerBlk][p_Np];
+    @shared dfloat s_u[p_NelementsPerThd][p_NelementsPerBlk][p_Np];
+    @shared dfloat s_v[p_NelementsPerThd][p_NelementsPerBlk][p_Np];
+    @shared dfloat s_w[p_NelementsPerThd][p_NelementsPerBlk][p_Np];
+
+    @exclusive dfloat r_drdx[p_NelementsPerThd];
+    @exclusive dfloat r_drdy[p_NelementsPerThd];
+    @exclusive dfloat r_drdz[p_NelementsPerThd];
+    @exclusive dfloat r_dsdx[p_NelementsPerThd];
+    @exclusive dfloat r_dsdy[p_NelementsPerThd];
+    @exclusive dfloat r_dsdz[p_NelementsPerThd];
+    @exclusive dfloat r_dtdx[p_NelementsPerThd];
+    @exclusive dfloat r_dtdy[p_NelementsPerThd];
+    @exclusive dfloat r_dtdz[p_NelementsPerThd];
+
+    for(int et=0;et<p_NelementsPerBlk;++et;@inner(1)){
+      for(int n=0;n<p_Np;++n;@inner(0)){
+
+        for(int es=0;es<p_NelementsPerThd;++es){
+
+          const dlong e = es*p_NelementsPerBlk + et + eo;
+
+          if(e<Nelements){
+            r_drdx[es] = vgeo[e*p_Nvgeo + p_RXID];
+            r_drdy[es] = vgeo[e*p_Nvgeo + p_RYID];
+            r_drdz[es] = vgeo[e*p_Nvgeo + p_RZID];
+            r_dsdx[es] = vgeo[e*p_Nvgeo + p_SXID];
+            r_dsdy[es] = vgeo[e*p_Nvgeo + p_SYID];
+            r_dsdz[es] = vgeo[e*p_Nvgeo + p_SZID];
+            r_dtdx[es] = vgeo[e*p_Nvgeo + p_TXID];
+            r_dtdy[es] = vgeo[e*p_Nvgeo + p_TYID];
+            r_dtdz[es] = vgeo[e*p_Nvgeo + p_TZID];
+
+            const dlong  qbase = e*p_Np*p_Nfields + n;
+            s_rho[es][et][n] = q[qbase+0*p_Np];
+            const double r_u = q[qbase+1*p_Np];
+            const double r_v = q[qbase+2*p_Np];
+            const double r_w = q[qbase+3*p_Np];
+
+            s_u[es][et][n] = r_drdx[es]*r_u + r_drdy[es]*r_v + r_drdz[es]*r_w;
+            s_v[es][et][n] = r_dsdx[es]*r_u + r_dsdy[es]*r_v + r_dsdz[es]*r_w;
+            s_w[es][et][n] = r_dtdx[es]*r_u + r_dtdy[es]*r_v + r_dtdz[es]*r_w;
+          }
+        }
+      }
+    }
+
+    for(int et=0;et<p_NelementsPerBlk;++et;@inner(1)){
+      for(int n=0;n<p_Np;++n;@inner(0)){
+
+        dfloat r_div[p_NelementsPerThd] = {0.};
+        dfloat r_drhodr[p_NelementsPerThd] = {0.};
+        dfloat r_drhods[p_NelementsPerThd] = {0.};
+        dfloat r_drhodt[p_NelementsPerThd] = {0.};
+
+        //Dr
+        for(int m=0;m<p_Np;++m){
+          const dfloat Drnm = D[n+m*p_Np];
+          for(int es=0;es<p_NelementsPerThd;++es){
+            const dfloat um = s_u[es][et][m];
+            const dfloat rhom = s_rho[es][et][m];
+
+            r_div[es]    += Drnm*um;
+            r_drhodr[es] += Drnm*rhom;
+          }
+        }
+
+        //Ds
+        D += p_Np*p_Np;
+        for(int m=0;m<p_Np;++m){
+          const dfloat Dsnm = D[n+m*p_Np];
+          for(int es=0;es<p_NelementsPerThd;++es){
+            const dfloat vm = s_v[es][et][m];
+            const dfloat rhom = s_rho[es][et][m];
+
+            r_div[es]    += Dsnm*vm;
+            r_drhods[es] += Dsnm*rhom;
+          }
+        }
+
+        //Dt
+        D += p_Np*p_Np;
+        for(int m=0;m<p_Np;++m){
+          const dfloat Dtnm = D[n+m*p_Np];
+          for(int es=0;es<p_NelementsPerThd;++es){
+            const dfloat wm = s_w[es][et][m];
+            const dfloat rhom = s_rho[es][et][m];
+
+            r_div[es]    += Dtnm*wm;
+            r_drhodt[es] += Dtnm*rhom;
+          }
+        }
+
+        for(int es=0;es<p_NelementsPerThd;++es){
+
+          const dlong e = es*p_NelementsPerBlk + et + eo;
+
+          if(e<Nelements){
+            const dlong base = e*p_Np*p_Nfields + n;
+
+            const dfloat drhodx = r_drdx[es]*r_drhodr[es] + r_dsdx[es]*r_drhods[es] + r_dtdx[es]*r_drhodt[es];
+            const dfloat drhody = r_drdy[es]*r_drhodr[es] + r_dsdy[es]*r_drhods[es] + r_dtdy[es]*r_drhodt[es];
+            const dfloat drhodz = r_drdz[es]*r_drhodr[es] + r_dsdz[es]*r_drhods[es] + r_dtdz[es]*r_drhodt[es];
+
+            // move to rhs
+            rhsq[base+0*p_Np] = -r_div[es];
+            rhsq[base+1*p_Np] = -drhodx;
+            rhsq[base+2*p_Np] = -drhody;
+            rhsq[base+3*p_Np] = -drhodz;
+          }
+        }
+      }
+    }
+  }
+}
+
+#elif KERNEL_NUMBER==1
 
 
+// MFMA kernel
+@kernel void acousticsVolumeTet3D(const dlong Nelements,
+                                 @restrict const  dfloat *  vgeo,
+                                 @restrict const  dfloat *  D,
+                                 @restrict const  dfloat *  q,
+                                 @restrict dfloat *  rhsq){
+
+  for(dlong eo=0;eo<Nelements;eo+=16;@outer(0)){
+
+    @shared dfloat s_rho[(((p_Np-1)/16)+1)*16][16+1];
+    @shared dfloat s_u[(((p_Np-1)/16)+1)*16][16+1];
+
+    @exclusive dfloat r_v[4];
+    @exclusive dfloat r_w[4];
+
+    @exclusive int n;
+
+    for(int w=0;w<((p_Np-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){
+
+          n = lx + 16*w;
+
+          dfloat r_rho[4];
+          dfloat r_u[4];
+
+          for (int i=0;i<4;++i) {
+            const dlong e = eo + ly + 4*i;
+
+            r_rho[i] = 0.;
+            r_u[i] = 0.;
+            r_v[i] = 0.;
+            r_w[i] = 0.;
+
+            if(e<Nelements){
+              const dfloat r_drdx = vgeo[e*p_Nvgeo + p_RXID];
+              const dfloat r_drdy = vgeo[e*p_Nvgeo + p_RYID];
+              const dfloat r_drdz = vgeo[e*p_Nvgeo + p_RZID];
+              const dfloat r_dsdx = vgeo[e*p_Nvgeo + p_SXID];
+              const dfloat r_dsdy = vgeo[e*p_Nvgeo + p_SYID];
+              const dfloat r_dsdz = vgeo[e*p_Nvgeo + p_SZID];
+              const dfloat r_dtdx = vgeo[e*p_Nvgeo + p_TXID];
+              const dfloat r_dtdy = vgeo[e*p_Nvgeo + p_TYID];
+              const dfloat r_dtdz = vgeo[e*p_Nvgeo + p_TZID];
+
+              if (n<p_Np) {
+                const dlong  qbase = e*p_Np*p_Nfields + n;
+                r_rho[i] = q[qbase+0*p_Np];
+                const double u = q[qbase+1*p_Np];
+                const double v = q[qbase+2*p_Np];
+                const double w = q[qbase+3*p_Np];
+
+                r_u[i] = r_drdx*u + r_drdy*v + r_drdz*w;
+                r_v[i] = r_dsdx*u + r_dsdy*v + r_dsdz*w;
+                r_w[i] = r_dtdx*u + r_dtdy*v + r_dtdz*w;
+              }
+            }
+          }
+
+          for (int i=0;i<4;++i) {
+            s_rho[n][ly+4*i] = r_rho[i];
+            s_u[n][ly+4*i] = r_u[i];
+          }
+        }
+      }
+    }
+
+    @exclusive __attribute__((__vector_size__(4 * 8))) double r_div;
+    @exclusive __attribute__((__vector_size__(4 * 8))) double r_drhodr;
+    @exclusive __attribute__((__vector_size__(4 * 8))) double r_drhods;
+    @exclusive __attribute__((__vector_size__(4 * 8))) double r_drhodt;
+
+    for(int w=0;w<((p_Np-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){
+
+          for (int i = 0; i<4;++i) {
+            r_div[i] = 0.0;
+            r_drhodr[i] = 0.0;
+          }
+
+          //Dr
+          dfloat r_D = (n<p_Np && (ly)<p_Np) ? D[n + (ly)*p_Np] : 0.0; //16 rows and 4 columns of D
+
+          for(int m=0;m<p_Np;m+=4){
+            const dfloat r_D_next = (n<p_Np && (m+4+ly)<p_Np) ? D[n + (m+4+ly)*p_Np] : 0.0; //16 rows and 4 columns of D
+
+            const dfloat rho  = s_rho[m+ly][lx]; //4 DOFs from 16 elements
+            const dfloat u  = s_u[m+ly][lx]; //4 DOFs from 16 elements
+
+            r_drhodr = __builtin_amdgcn_mfma_f64_16x16x4f64(rho, r_D, r_drhodr, 0, 0, 0);
+            r_div    = __builtin_amdgcn_mfma_f64_16x16x4f64(u, r_D, r_div, 0, 0, 0);
+
+            r_D = r_D_next;
+          }
+        }
+      }
+    }
+
+    for(int w=0;w<((p_Np-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){
+          for (int i=0;i<4;++i) {
+            s_u[n][ly+4*i] = r_v[i];
+          }
+        }
+      }
+    }
+
+    for(int w=0;w<((p_Np-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){
+
+          for (int i = 0; i<4;++i) {
+            r_drhods[i] = 0.0;
+          }
+
+          //Ds
+          D += p_Np*p_Np;
+          dfloat r_D = (n<p_Np && (ly)<p_Np) ? D[n + (ly)*p_Np] : 0.0; //16 rows and 4 columns of D
+
+          for(int m=0;m<p_Np;m+=4){
+            const dfloat r_D_next = (n<p_Np && (m+4+ly)<p_Np) ? D[n + (m+4+ly)*p_Np] : 0.0; //16 rows and 4 columns of D
+
+            const dfloat rho  = s_rho[m+ly][lx]; //4 DOFs from 16 elements
+            const dfloat v  = s_u[m+ly][lx]; //4 DOFs from 16 elements
+
+            r_drhods = __builtin_amdgcn_mfma_f64_16x16x4f64(rho, r_D, r_drhods, 0, 0, 0);
+            r_div    = __builtin_amdgcn_mfma_f64_16x16x4f64(v, r_D, r_div, 0, 0, 0);
+
+            r_D = r_D_next;
+          }
+        }
+      }
+    }
+
+    for(int w=0;w<((p_Np-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){
+          for (int i=0;i<4;++i) {
+            s_u[n][ly+4*i] = r_w[i];
+          }
+        }
+      }
+    }
+
+
+    for(int w=0;w<((p_Np-1)/16)+1;++w;@inner(2)){
+      for(int ly=0;ly<4;++ly;@inner(1)){
+        for(int lx=0;lx<16;++lx;@inner(0)){
+
+          for (int i = 0; i<4;++i) {
+            r_drhodt[i] = 0.0;
+          }
+
+          //Dt
+          D += p_Np*p_Np;
+          dfloat r_D = (n<p_Np && (ly)<p_Np) ? D[n + (ly)*p_Np] : 0.0; //16 rows and 4 columns of D
+
+          for(int m=0;m<p_Np;m+=4){
+            const dfloat r_D_next = (n<p_Np && (m+4+ly)<p_Np) ? D[n + (m+4+ly)*p_Np] : 0.0; //16 rows and 4 columns of D
+
+            const dfloat rho  = s_rho[m+ly][lx]; //4 DOFs from 16 elements
+            const dfloat w  = s_u[m+ly][lx]; //4 DOFs from 16 elements
+
+            r_drhodt = __builtin_amdgcn_mfma_f64_16x16x4f64(rho, r_D, r_drhodt, 0, 0, 0);
+            r_div    = __builtin_amdgcn_mfma_f64_16x16x4f64(w, r_D, r_div, 0, 0, 0);
+
+            r_D = r_D_next;
+          }
+
+
+          if (n < p_Np) {
+            for (int i=0;i<4;++i) {
+              const dlong e = eo + ly + 4*i;
+
+              if(e<Nelements){
+                const dlong base = e*p_Np*p_Nfields + n;
+
+                const dfloat r_drdx = vgeo[e*p_Nvgeo + p_RXID];
+                const dfloat r_drdy = vgeo[e*p_Nvgeo + p_RYID];
+                const dfloat r_drdz = vgeo[e*p_Nvgeo + p_RZID];
+                const dfloat r_dsdx = vgeo[e*p_Nvgeo + p_SXID];
+                const dfloat r_dsdy = vgeo[e*p_Nvgeo + p_SYID];
+                const dfloat r_dsdz = vgeo[e*p_Nvgeo + p_SZID];
+                const dfloat r_dtdx = vgeo[e*p_Nvgeo + p_TXID];
+                const dfloat r_dtdy = vgeo[e*p_Nvgeo + p_TYID];
+                const dfloat r_dtdz = vgeo[e*p_Nvgeo + p_TZID];
+
+                const dfloat drhodx = r_drdx*r_drhodr[i] + r_dsdx*r_drhods[i] + r_dtdx*r_drhodt[i];
+                const dfloat drhody = r_drdy*r_drhodr[i] + r_dsdy*r_drhods[i] + r_dtdy*r_drhodt[i];
+                const dfloat drhodz = r_drdz*r_drhodr[i] + r_dsdz*r_drhods[i] + r_dtdz*r_drhodt[i];
+
+                // move to rhs
+                rhsq[base+0*p_Np] = -r_div[i];
+                rhsq[base+1*p_Np] = -drhodx;
+                rhsq[base+2*p_Np] = -drhody;
+                rhsq[base+3*p_Np] = -drhodz;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+#endif

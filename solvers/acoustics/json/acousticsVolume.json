@@ -1,0 +1,33 @@
+//Default
+{"Name":"acousticsVolumeTet3D","keys":{},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":1,"p_NelementsPerThd":1}}
+
+//HIP mode defaults. Tuned on gfx90a (MI200)
+{"Name":"acousticsVolumeTet3D","keys":{"N":1,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":64,"p_NelementsPerThd":2}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":2,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":6,"p_NelementsPerThd":4}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":3,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":3,"p_NelementsPerThd":2}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":4,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":1,"p_NelementsPerThd":7}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":5,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":2,"p_NelementsPerThd":3}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":6,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":3,"p_NelementsPerThd":4}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":7,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":1,"p_NelementsPerThd":4}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":8,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":1,"p_NelementsPerThd":3}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":9,"mode":"HIP"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":1,"p_NelementsPerThd":3}}
+
+{"Name":"acousticsVolumeTet3D","keys":{"N":1,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":48,"p_NelementsPerThd":2}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":2,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":51,"p_NelementsPerThd":2}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":3,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":3,"p_NelementsPerThd":2}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":4,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":5,"p_NelementsPerThd":5}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":5,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":9,"p_NelementsPerThd":4}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":6,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":3,"p_NelementsPerThd":4}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":7,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":2,"p_NelementsPerThd":4}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":8,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":3,"p_NelementsPerThd":3}}
+{"Name":"acousticsVolumeTet3D","keys":{"N":9,"mode":"HIP","arch":"gfx940,gfx941,gfx942"},"props":{"KERNEL_NUMBER":0,"p_NelementsPerBlk":2,"p_NelementsPerThd":4}}
+
+//MFMA kernels
+// {"Name":"acousticsVolumeTet3D","keys":{"N":2,"mode":"HIP","arch":"gfx940,gfx941,gfx942","dfloat":"double"},"props":{"KERNEL_NUMBER":1}}
+// {"Name":"acousticsVolumeTet3D","keys":{"N":3,"mode":"HIP","arch":"gfx90a,gfx940,gfx941,gfx942","dfloat":"double"},"props":{"KERNEL_NUMBER":1}}
+// {"Name":"acousticsVolumeTet3D","keys":{"N":4,"mode":"HIP","arch":"gfx90a,gfx940,gfx941,gfx942","dfloat":"double"},"props":{"KERNEL_NUMBER":1}}
+// {"Name":"acousticsVolumeTet3D","keys":{"N":5,"mode":"HIP","arch":"gfx90a,gfx940,gfx941,gfx942","dfloat":"double"},"props":{"KERNEL_NUMBER":1}}
+// {"Name":"acousticsVolumeTet3D","keys":{"N":6,"mode":"HIP","arch":"gfx90a,gfx940,gfx941,gfx942","dfloat":"double"},"props":{"KERNEL_NUMBER":1}}
+// {"Name":"acousticsVolumeTet3D","keys":{"N":7,"mode":"HIP","arch":"gfx90a,gfx940,gfx941,gfx942","dfloat":"double"},"props":{"KERNEL_NUMBER":1}}
+// {"Name":"acousticsVolumeTet3D","keys":{"N":8,"mode":"HIP","arch":"gfx90a,gfx940,gfx941,gfx942","dfloat":"double"},"props":{"KERNEL_NUMBER":1}}
+// {"Name":"acousticsVolumeTet3D","keys":{"N":9,"mode":"HIP","arch":"gfx90a,gfx940,gfx941,gfx942","dfloat":"double"},"props":{"KERNEL_NUMBER":1}}

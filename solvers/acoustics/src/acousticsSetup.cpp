@@ -25,6 +25,7 @@ SOFTWARE.
 */
 
 #include "acoustics.hpp"
+#include "parameters.hpp"
 
 void acoustics_t::Setup(platform_t& _platform, mesh_t& _mesh,
                         acousticsSettings_t& _settings){
@@ -99,6 +100,7 @@ void acoustics_t::Setup(platform_t& _platform, mesh_t& _mesh,
 
   kernelInfo["defines/" "p_Lambda2"]= Lambda2;
 
+
   // set kernel name suffix
   std::string suffix = mesh.elementSuffix();
   std::string oklFilePrefix = DACOUSTICS "/okl/";
@@ -106,18 +108,48 @@ void acoustics_t::Setup(platform_t& _platform, mesh_t& _mesh,
 
   std::string fileName, kernelName;
 
+  properties_t keys;
+  keys["dfloat"] = (sizeof(dfloat)==4) ? "float" : "double";
+  keys["N"] = mesh.N;
+  keys["mode"] = platform.device.mode();
+
+  std::string arch = platform.device.arch();
+  if (platform.device.mode()=="HIP") {
+    arch = arch.substr(0,arch.find(":")); //For HIP mode, remove the stuff after the :
+  }
+  keys["arch"] = arch;
+
   // kernels from volume file
   fileName   = oklFilePrefix + "acousticsVolume" + suffix + oklFileSuffix;
   kernelName = "acousticsVolume" + suffix;
 
-  volumeKernel =  platform.buildKernel(fileName, kernelName,
-                                         kernelInfo);
+  parameters_t volumeParameters;
+  std::string volumeParameterFile = DACOUSTICS "/json/acousticsVolume.json";
+  volumeParameters.load(volumeParameterFile, mesh.comm);
+
+  if (mesh.rank==0) std::cout << "Loading Tuning Parameters, looking for match for Name:'" << kernelName << "', keys:" << volumeParameters.toString(keys) << std::endl;
+  properties_t volumeParam = volumeParameters.findProperties(kernelName, keys);
+  if (mesh.rank==0) std::cout << "Found best match = " << volumeParameters.toString(volumeParam) << std::endl;
+
+  properties_t volumeProps = kernelInfo;
+  volumeProps["defines"] += volumeParam["props"];
+  volumeKernel =  platform.buildKernel(fileName, kernelName, volumeProps);
+
   // kernels from surface file
   fileName   = oklFilePrefix + "acousticsSurface" + suffix + oklFileSuffix;
   kernelName = "acousticsSurface" + suffix;
 
-  surfaceKernel = platform.buildKernel(fileName, kernelName,
-                                         kernelInfo);
+  parameters_t surfaceParameters;
+  std::string surfaceParameterFile = DACOUSTICS "/json/acousticsSurface.json";
+  surfaceParameters.load(surfaceParameterFile, mesh.comm);
+
+  if (mesh.rank==0) std::cout << "Loading Tuning Parameters, looking for match for Name:'" << kernelName << "', keys:" << surfaceParameters.toString(keys) << std::endl;
+  properties_t surfaceParam = surfaceParameters.findProperties(kernelName, keys);
+  if (mesh.rank==0) std::cout << "Found best match = " << surfaceParameters.toString(surfaceParam) << std::endl;
+
+  properties_t surfaceProps = kernelInfo;
+  surfaceProps["defines"] += surfaceParam["props"];
+  surfaceKernel =  platform.buildKernel(fileName, kernelName, surfaceProps);
 
   if (mesh.dim==2) {
     fileName   = oklFilePrefix + "acousticsInitialCondition2D" + oklFileSuffix;
@@ -125,6 +157,12 @@ void acoustics_t::Setup(platform_t& _platform, mesh_t& _mesh,
   } else {
     fileName   = oklFilePrefix + "acousticsInitialCondition3D" + oklFileSuffix;
     kernelName = "acousticsInitialCondition3D";
+  }
+
+  if (mesh.rank==0) {
+    printf("\n");
+    printf("Global DOFs = %lld\n", mesh.NelementsGlobal * mesh.Np * Nfields);
+    printf("\n");
   }
 
   initialConditionKernel = platform.buildKernel(fileName, kernelName,

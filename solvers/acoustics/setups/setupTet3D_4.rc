@@ -13,14 +13,14 @@ BOX
 [ELEMENT TYPE] # number of edges
 6
 
-[BOX GLOBAL NX]
-10
+[BOX NX]
+37
 
-[BOX GLOBAL NY]
-10
+[BOX NY]
+37
 
-[BOX GLOBAL NZ]
-10
+[BOX NZ]
+37
 
 [BOX BOUNDARY FLAG]
 1

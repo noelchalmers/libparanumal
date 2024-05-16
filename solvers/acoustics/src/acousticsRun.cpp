@@ -25,6 +25,7 @@ SOFTWARE.
 */
 
 #include "acoustics.hpp"
+#include "timer.hpp"
 
 void acoustics_t::Run(){
 
@@ -49,7 +50,11 @@ void acoustics_t::Run(){
   dfloat dt = cfl*hmin/(vmax*(mesh.N+1.)*(mesh.N+1.));
   timeStepper.SetTimeStep(dt);
 
+  timePoint_t start = GlobalPlatformTime(platform);
+
   timeStepper.Run(*this, o_q, startTime, finalTime);
+
+  timePoint_t end = GlobalPlatformTime(platform);
 
   // output norm of final solution
   {
@@ -62,5 +67,9 @@ void acoustics_t::Run(){
 
     if(mesh.rank==0)
       printf("Solution norm = %17.15lg\n", norm2);
+  }
+
+  if(mesh.rank==0) {
+    printf("Time to solution = %f s\n", ElapsedTime(start, end));
   }
 }

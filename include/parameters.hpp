@@ -24,30 +24,31 @@ SOFTWARE.
 
 */
 
+#ifndef PARAMETERS_HPP
+#define PARAMETERS_HPP
 
+#include "core.hpp"
+#include "comm.hpp"
 
-// Boundary conditions
-/* wall 1, inflow 2 */
-#define acousticsDirichletConditions3D(bc, t, x, y, z, nx, ny, nz, rM, uM, vM, wM, rB, uB, vB, wB) \
-{                                                \
-  if(bc==2){                                     \
-    *(rB) = -rM;                                 \
-    *(uB) = uM;                                  \
-    *(vB) = vM;                                  \
-    *(wB) = wM;                                  \
-  } else if(bc==1){                              \
-    *(rB) = rM;                                  \
-    *(uB) = uM - 2.0*(nx*uM+ny*vM+nz*wM)*nx;     \
-    *(vB) = vM - 2.0*(nx*uM+ny*vM+nz*wM)*ny;     \
-    *(wB) = wM - 2.0*(nx*uM+ny*vM+nz*wM)*nz;     \
-  }                                              \
-}
+namespace libp {
 
-// Initial conditions
-#define acousticsInitialConditions3D(t, x, y, z, r, u, v, w) \
-{                                       \
-  *(r) = 1.0 + exp(-3*((x+3)*(x+3)+(y+4)*(y+4)+(z+2)*(z+2)));   \
-  *(u) = 0.0;                           \
-  *(v) = 0.0;                           \
-  *(w) = 0.0;                           \
-}
+// Class for loading a list of tuning parameters from a .json file and
+// finding a best match for a given set of user-provided runtime options
+class parameters_t {
+ public:
+  // Load a list of kernel parameters from a .json file
+  void load(std::string filename, comm_t& comm);
+
+  // Find best match for a set of keys in list of loaded parameters
+  properties_t findProperties(std::string name, properties_t& keys);
+
+  //Convert a property to a single line string
+  static std::string toString(properties_t& prop);
+
+ private:
+  std::vector<properties_t> dataBase;
+};
+
+} //namespace libp
+
+#endif
